@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">Obsidian Capture panel preview</title>
+  <desc id="desc">A dark Omarchy-style panel for capturing a quick thought and saving it as an Obsidian note.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#11151d"/><stop offset="1" stop-color="#202b35"/></linearGradient>
+    <linearGradient id="panel" x2="0" y2="1"><stop stop-color="#242c37"/><stop offset="1" stop-color="#1e252e"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feGaussianBlur stdDeviation="22"/></filter>
+  </defs>
+  <rect width="1200" height="650" rx="28" fill="url(#bg)"/>
+  <circle cx="1000" cy="80" r="190" fill="#9b7bf5" opacity=".08"/>
+  <circle cx="180" cy="580" r="210" fill="#68d5b5" opacity=".06"/>
+  <rect x="48" y="42" width="1104" height="44" rx="13" fill="#131820" stroke="#323b48"/>
+  <text x="76" y="70" fill="#b8c3d2" font-family="sans-serif" font-size="16">OMARCHY</text>
+  <text x="1002" y="70" fill="#c9d2df" font-family="sans-serif" font-size="16">◉  14:32  ·  Sun, Oct 25</text>
+  <rect x="167" y="132" width="866" height="460" rx="25" fill="#000" opacity=".42" filter="url(#shadow)"/>
+  <rect x="172" y="122" width="856" height="466" rx="22" fill="url(#panel)" stroke="#45515f" stroke-width="2"/>
+  <text x="216" y="176" fill="#f3f5f9" font-family="sans-serif" font-size="27" font-weight="700">捕捉想法</text>
+  <rect x="800" y="145" width="183" height="38" rx="19" fill="#313b49"/>
+  <circle cx="823" cy="164" r="6" fill="#a88bff"/>
+  <text x="839" y="170" fill="#c3ccda" font-family="sans-serif" font-size="15">Obsidian · Inbox</text>
+  <rect x="212" y="204" width="776" height="278" rx="13" fill="#171d25" stroke="#3d4957"/>
+  <text x="241" y="250" fill="#f0f2f6" font-family="sans-serif" font-size="20" font-weight="600">让灵感先落地，再慢慢整理</text>
+  <text x="241" y="293" fill="#d0d7e2" font-family="sans-serif" font-size="18">今天想到一个轻量的周计划方法：</text>
+  <text x="241" y="326" fill="#d0d7e2" font-family="sans-serif" font-size="18">每周只选三件真正重要的事，其他想法</text>
+  <text x="241" y="359" fill="#d0d7e2" font-family="sans-serif" font-size="18">先放进收件箱，周末再回顾。</text>
+  <text x="241" y="436" fill="#7f8b9c" font-family="sans-serif" font-size="15">首行会用作笔记标题</text>
+  <text x="216" y="533" fill="#8e9aaa" font-family="sans-serif" font-size="15">Ctrl + Enter 保存 · Esc 关闭</text>
+  <rect x="810" y="504" width="178" height="52" rx="13" fill="#a78bfa"/>
+  <text x="899" y="537" text-anchor="middle" fill="#171322" font-family="sans-serif" font-size="17" font-weight="700">保存笔记</text>
+  <text x="600" y="628" text-anchor="middle" fill="#aeb8c8" font-family="sans-serif" font-size="15">界面示意图 · 插件安装后自动适配 Omarchy 当前主题</text>
+</svg>

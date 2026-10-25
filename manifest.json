@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.chivopic.obsidian-capture",
+  "name": "Obsidian Capture",
+  "version": "0.1.0",
+  "author": "chivopic",
+  "homepage": "https://github.com/chivopic/omarchy-obsidian-capture",
+  "description": "Capture quick thoughts into dated Markdown notes in an Obsidian vault",
+  "license": "MIT",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Obsidian Capture",
+    "description": "快速记录想法并保存为 Obsidian 笔记",
+    "category": "Productivity",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": { "vaultPath": "", "folder": "Inbox" },
+    "schema": [
+      { "key": "vaultPath", "type": "string", "label": "Obsidian 库的绝对路径", "defaultValue": "" },
+      { "key": "folder", "type": "string", "label": "库内笔记文件夹", "defaultValue": "Inbox" }
+    ]
+  }
+}

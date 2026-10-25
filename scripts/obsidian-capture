@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Create a dated, editable Markdown note in an Obsidian vault."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+
+def slugify(title: str) -> str:
+    value = re.sub(r"[^\w\u4e00-\u9fff -]", "", title, flags=re.UNICODE)
+    value = re.sub(r"[\s-]+", "-", value.strip()).strip("-")
+    return value[:64].strip("-") or "idea"
+
+
+def create_note(text: str, vault: str, folder: str = "Inbox", now: datetime | None = None) -> Path:
+    content = text.strip()
+    if not content:
+        raise ValueError("想法内容不能为空")
+
+    vault_path = Path(vault).expanduser().resolve()
+    if not vault_path.is_dir():
+        raise ValueError(f"Obsidian 库目录不存在：{vault_path}")
+    relative_folder = Path(folder)
+    if relative_folder.is_absolute() or ".." in relative_folder.parts:
+        raise ValueError("笔记文件夹必须是库内的相对路径，不能包含 ..")
+
+    moment = now or datetime.now().astimezone()
+    title = next((line.strip().lstrip("# ").strip() for line in content.splitlines() if line.strip()), "")
+    title = title[:120] or f"想法 {moment:%Y-%m-%d %H:%M}"
+    target_dir = (vault_path / relative_folder).resolve()
+    if not target_dir.is_relative_to(vault_path):
+        raise ValueError("笔记文件夹不能指向 Obsidian 库之外")
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    stem = f"{moment:%Y-%m-%d %H%M} {slugify(title)}"
+    body = (
+        "---\n"
+        f'title: {json.dumps(title, ensure_ascii=False)}\n'
+        f"created: {moment.isoformat(timespec='minutes')}\n"
+        "tags:\n  - inbox\n  - idea\n"
+        "---\n\n"
+        f"# {title}\n\n{content}\n"
+    )
+    index = 1
+    while True:
+        suffix = "" if index == 1 else f" ({index})"
+        path = target_dir / f"{stem}{suffix}.md"
+        try:
+            with path.open("x", encoding="utf-8") as note:
+                note.write(body)
+            return path
+        except FileExistsError:
+            index += 1
+
+
+def prompt_with_rofi() -> str:
+    if not os.environ.get("WAYLAND_DISPLAY"):
+        raise RuntimeError("--prompt 需要在 Wayland 桌面中运行")
+    command = shlex.split(os.environ.get("OBSIDIAN_CAPTURE_PROMPT", "rofi -dmenu -multi-line -l 6 -p '记录想法'"))
+    result = subprocess.run(command, text=True, input="", capture_output=True, check=False)
+    if result.returncode not in (0,):
+        return ""
+    return result.stdout
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="把一个想法保存为 Obsidian Markdown 笔记")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--capture", metavar="TEXT", help="直接保存一段文本")
+    source.add_argument("--stdin", action="store_true", help="从标准输入读取文本")
+    source.add_argument("--prompt", action="store_true", help="通过 Rofi 打开快速输入框")
+    parser.add_argument("--vault", default=os.environ.get("OBSIDIAN_VAULT", ""), help="Obsidian 库路径，也可设 OBSIDIAN_VAULT")
+    parser.add_argument("--folder", default=os.environ.get("OBSIDIAN_CAPTURE_FOLDER", "Inbox"), help="库内相对文件夹，默认 Inbox")
+    parser.add_argument("--json", action="store_true", help="以 JSON 输出结果，供桌面插件调用")
+    args = parser.parse_args()
+
+    try:
+        text = args.capture if args.capture is not None else sys.stdin.read() if args.stdin else prompt_with_rofi()
+        if not text.strip() and args.prompt:
+            return 0
+        if not args.vault:
+            raise ValueError("尚未指定 Obsidian 库。请使用 --vault 或设置 OBSIDIAN_VAULT")
+        path = create_note(text, args.vault, args.folder)
+        if args.json:
+            print(json.dumps({"ok": True, "path": str(path)}, ensure_ascii=False))
+        else:
+            print(f"已保存：{path}")
+        return 0
+    except (ValueError, OSError, RuntimeError) as error:
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False))
+        else:
+            print(f"obsidian-capture: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
