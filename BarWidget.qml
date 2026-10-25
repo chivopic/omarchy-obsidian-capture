@@ -105,7 +105,7 @@ BarWidget {
           placeholderText: "想到什么就写下来…\n首行会用作笔记标题。"
           color: Commons.Color.foreground
           selectedTextColor: Commons.Color.foreground
-          selectionColor: Commons.Color.primary
+          selectionColor: Commons.Color.accent
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           wrapMode: TextEdit.Wrap
