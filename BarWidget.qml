@@ -67,12 +67,14 @@ BarWidget {
     open: root.popupOpen
     contentWidth: fittedContentWidth(Style.space(390))
     contentHeight: fittedContentHeight(content.implicitHeight)
-    onOpenChanged: if (open) Qt.callLater(editor.forceActiveFocus)
+    onOpenChanged: if (open) Qt.callLater(function() { editor.forceActiveFocus() })
 
     Column {
       id: content
       width: parent.width
       spacing: Style.space(12)
+      focus: true
+      Keys.onEscapePressed: root.close()
 
       Row {
         width: parent.width
@@ -101,6 +103,7 @@ BarWidget {
           id: editor
           anchors.fill: parent
           anchors.margins: Style.space(10)
+          focus: true
           text: root.draft
           placeholderText: "想到什么就写下来…\n首行会用作笔记标题。"
           color: Commons.Color.foreground
