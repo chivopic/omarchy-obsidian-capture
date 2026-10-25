@@ -59,15 +59,15 @@ BarWidget {
 
   Timer { id: clearStatus; interval: 2200; onTriggered: root.status = "" }
 
-  PopupCard {
+  KeyboardPanel {
     id: panel
     anchorItem: button
     bar: root.bar
     owner: root
     open: root.popupOpen
+    focusTarget: editor
     contentWidth: fittedContentWidth(Style.space(390))
     contentHeight: fittedContentHeight(content.implicitHeight)
-    onOpenChanged: if (open) Qt.callLater(function() { editor.forceActiveFocus() })
 
     Column {
       id: content
