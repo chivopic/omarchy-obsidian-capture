@@ -55,7 +55,6 @@ BarWidget {
     onExited: function(code, exitStatus) {
       if ((code !== 0 || exitStatus !== 0) && root.status === "正在保存…") root.status = "保存失败，请检查配置"
     }
-    onErrorOccurred: function(error) { if (error === 0) root.status = "无法启动 Python 保存程序" }
   }
 
   Timer { id: clearStatus; interval: 2200; onTriggered: root.status = "" }
