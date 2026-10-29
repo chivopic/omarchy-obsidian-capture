@@ -13,14 +13,19 @@ BarWidget {
   property string status: ""
   property string savedText: ""
   readonly property bool opened: popupOpen
-    readonly property string writerPath: String(Qt.resolvedUrl("scripts/obsidian-capture")).replace(/^file:\/\//, "")
+  readonly property string writerPath: decodeURIComponent(String(Qt.resolvedUrl("scripts/obsidian-capture")).replace(/^file:\/\//, ""))
+  readonly property string destination: String(setting("folder", "Inbox")) || "."
 
-  function open() { popupOpen = true; status = "" }
+  // Omarchy's shell-level `summon` routes to these methods for bar widgets.
+  // Keep this API on the widget root so it works across shell versions without
+  // registering one IpcHandler per bar instance/screen.
+  function open() { clearStatus.stop(); popupOpen = true; status = "" }
   function close() { popupOpen = false }
   function toggle() { popupOpen ? close() : open() }
   function save() {
     if (!draft.trim() || writer.running) return
-    savedText = draft.trim()
+    savedText = draft
+    clearStatus.stop()
     status = "正在保存…"
     writer.running = true
   }
@@ -41,19 +46,30 @@ BarWidget {
 
   Process {
     id: writer
-    command: ["python3", root.writerPath, "--capture", root.savedText,
+    command: ["python3", root.writerPath, "--stdin-json",
       "--vault", String(root.setting("vaultPath", "")),
       "--folder", String(root.setting("folder", "Inbox")), "--json"]
+    stdinEnabled: true
+    onStarted: write(JSON.stringify(root.savedText) + "\n")
     stdout: SplitParser { onRead: data => {
       try {
         const result = JSON.parse(data)
-        root.status = result.ok ? "已保存到 Obsidian" : result.error
-        if (result.ok) { root.draft = ""; clearStatus.restart() }
+        root.status = result.ok ? "已保存：" + String(result.path || "").split("/").pop() : "保存失败：" + (result.error || "请检查配置")
+        if (result.ok) {
+          // The editor may have changed while the process was writing. Clear
+          // only the submitted snapshot so newer text is never discarded.
+          if (root.draft === root.savedText) editor.text = ""
+          clearStatus.restart()
+        }
       } catch (error) { root.status = "保存失败：无法读取结果" }
     } }
     stderr: SplitParser { onRead: data => console.warn("Obsidian Capture:", data) }
     onExited: function(code, exitStatus) {
-      if ((code !== 0 || exitStatus !== 0) && root.status === "正在保存…") root.status = "保存失败，请检查配置"
+      if (root.status === "正在保存…") {
+        root.status = (code !== 0 || exitStatus !== 0)
+          ? "保存失败，请检查配置"
+          : "保存失败：未收到保存结果"
+      }
     }
   }
 
@@ -76,17 +92,23 @@ BarWidget {
       focus: true
       Keys.onEscapePressed: root.close()
 
-      Row {
+      Item {
         width: parent.width
+        height: Math.max(heading.implicitHeight, destinationLabel.implicitHeight)
         Text {
+          id: heading
           text: "捕捉想法"
           color: Commons.Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.subtitle
         }
-        Item { width: parent.width - 140; height: 1 }
         Text {
-          text: "Obsidian · Inbox"
+          id: destinationLabel
+          anchors.right: parent.right
+          width: Math.max(0, parent.width - heading.width - Style.space(12))
+          text: "Obsidian · " + root.destination
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideLeft
           color: Commons.Color.muted
           font.family: Style.font.family
           font.pixelSize: Style.font.caption

@@ -14,16 +14,21 @@ from datetime import datetime
 from pathlib import Path
 
 
-def slugify(title: str) -> str:
+def slugify(title: str, max_bytes: int = 64) -> str:
     value = re.sub(r"[^\w\u4e00-\u9fff -]", "", title, flags=re.UNICODE)
     value = re.sub(r"[\s-]+", "-", value.strip()).strip("-")
-    return value[:64].strip("-") or "idea"
+    value = value[:64].strip("-")
+    while value and len(value.encode("utf-8")) > max_bytes:
+        value = value[:-1].rstrip("-")
+    return value or "idea"
 
 
 def create_note(text: str, vault: str, folder: str = "Inbox", now: datetime | None = None) -> Path:
-    content = text.strip()
-    if not content:
+    if not text.strip():
         raise ValueError("想法内容不能为空")
+    # Keep the submitted body intact; trimming is only for validation and title
+    # extraction. Add a final newline for a well-formed Markdown file.
+    content = text if text.endswith("\n") else f"{text}\n"
 
     vault_path = Path(vault).expanduser().resolve()
     if not vault_path.is_dir():
@@ -33,29 +38,45 @@ def create_note(text: str, vault: str, folder: str = "Inbox", now: datetime | No
         raise ValueError("笔记文件夹必须是库内的相对路径，不能包含 ..")
 
     moment = now or datetime.now().astimezone()
-    title = next((line.strip().lstrip("# ").strip() for line in content.splitlines() if line.strip()), "")
+    title = next((line.strip().lstrip("# ").strip() for line in text.splitlines() if line.strip()), "")
     title = title[:120] or f"想法 {moment:%Y-%m-%d %H:%M}"
     target_dir = (vault_path / relative_folder).resolve()
     if not target_dir.is_relative_to(vault_path):
         raise ValueError("笔记文件夹不能指向 Obsidian 库之外")
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    stem = f"{moment:%Y-%m-%d %H%M} {slugify(title)}"
+    stem_prefix = f"{moment:%Y-%m-%d %H%M} "
     body = (
         "---\n"
         f'title: {json.dumps(title, ensure_ascii=False)}\n'
         f"created: {moment.isoformat(timespec='minutes')}\n"
         "tags:\n  - inbox\n  - idea\n"
         "---\n\n"
-        f"# {title}\n\n{content}\n"
+        f"# {title}\n\n{content}"
     )
     index = 1
     while True:
         suffix = "" if index == 1 else f" ({index})"
+        slug_budget = 255 - len((stem_prefix + suffix + ".md").encode("utf-8"))
+        stem = f"{stem_prefix}{slugify(title, max_bytes=slug_budget)}"
         path = target_dir / f"{stem}{suffix}.md"
         try:
             with path.open("x", encoding="utf-8") as note:
-                note.write(body)
+                identity = os.fstat(note.fileno())
+                try:
+                    note.write(body)
+                    note.flush()
+                except BaseException:
+                    # Do not leave a truncated note behind after a failed write.
+                    # Check inode identity so we never remove a replacement made
+                    # by another process after this file was opened.
+                    try:
+                        current = path.stat()
+                        if (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
+                            path.unlink()
+                    except OSError:
+                        pass
+                    raise
             return path
         except FileExistsError:
             index += 1
@@ -76,6 +97,7 @@ def main() -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--capture", metavar="TEXT", help="直接保存一段文本")
     source.add_argument("--stdin", action="store_true", help="从标准输入读取文本")
+    source.add_argument("--stdin-json", action="store_true", help="从标准输入读取一行 JSON 字符串，可安全传递多行文本")
     source.add_argument("--prompt", action="store_true", help="通过 Rofi 打开快速输入框")
     parser.add_argument("--vault", default=os.environ.get("OBSIDIAN_VAULT", ""), help="Obsidian 库路径，也可设 OBSIDIAN_VAULT")
     parser.add_argument("--folder", default=os.environ.get("OBSIDIAN_CAPTURE_FOLDER", "Inbox"), help="库内相对文件夹，默认 Inbox")
@@ -83,7 +105,19 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        text = args.capture if args.capture is not None else sys.stdin.read() if args.stdin else prompt_with_rofi()
+        if args.capture is not None:
+            text = args.capture
+        elif args.stdin:
+            text = sys.stdin.read()
+        elif args.stdin_json:
+            try:
+                text = json.loads(sys.stdin.readline())
+            except json.JSONDecodeError as error:
+                raise ValueError(f"标准输入不是有效的 JSON 字符串：{error.msg}") from error
+            if not isinstance(text, str):
+                raise ValueError("--stdin-json 需要一个 JSON 字符串")
+        else:
+            text = prompt_with_rofi()
         if not text.strip() and args.prompt:
             return 0
         if not args.vault:

@@ -1,98 +1,95 @@
 # Omarchy Obsidian Capture
 
-随时记下一闪而过的想法，并直接在 Obsidian 库中生成一篇可继续编辑的 Markdown 笔记。点击 Omarchy 顶部栏的 ✎ 打开捕捉面板；也可以绑定快捷键，通过 Rofi 输入。
+从 Omarchy 顶部栏记录想法，直接保存到 Obsidian 库中的 Markdown 文件。输入多行文字，按 **Ctrl + Enter**，随后在 Obsidian 中继续整理。
 
-![Omarchy Obsidian Capture 面板示意图](docs/assets/capture-panel.svg)
+![快速记录面板的示意图](docs/assets/capture-panel.svg)
 
-*面板示意图：输入多行想法，首行作为标题，按 Ctrl + Enter 或点击按钮保存。界面安装后会适配当前 Omarchy 主题。*
+*界面示意图；实际面板使用当前 Omarchy 主题。*
 
-## 想法如何变成笔记
+![从输入想法到生成笔记的流程图](docs/assets/note-flow.svg)
 
-![从捕捉想法到 Obsidian Markdown 笔记的流程图](docs/assets/note-flow.svg)
+每次保存创建一个独立笔记：首个非空行成为标题，正文保留输入内容，并附上创建时间、`inbox` 和 `idea` 标签。同名文件会自动加序号，避免覆盖已有笔记。
 
-生成的文件采用本地 Markdown 格式，文件名包含日期和标题；重复标题会自动加序号，已有笔记不会被覆盖。
+## 本地安装
 
-## 安装
+需要支持 `KeyboardPanel` 的 Omarchy shell 和 Python 3。在项目目录中运行：
 
 ```bash
-omarchy plugin add https://github.com/chivopic/omarchy-obsidian-capture --enable
+# 先查看将要修改的位置
+python3 scripts/install-local
+
+# 将本仓库链接到 Omarchy 插件目录并启用顶部栏入口
+python3 scripts/install-local --apply
 ```
 
-在 Omarchy 插件设置里填写：
+安装器会保留已有的栏位配置，并在修改 `shell.json` 前备份。如果配置文件不存在，它会只创建插件链接；请通过 Omarchy 插件设置启用 **Obsidian Capture**。项目目前尚未发布到 GitHub，安装需要先拥有本地项目目录。
+
+在 Omarchy 插件设置中填写：
 
 | 设置 | 示例 | 说明 |
 | --- | --- | --- |
-| Obsidian 库的绝对路径 | `/home/alex/Documents/My Vault` | 指向含有 `.obsidian` 文件夹的库目录 |
-| 库内笔记文件夹 | `Inbox` | 相对于库目录；不存在时会自动创建 |
-
-例如保存到 `Inbox` 后，笔记会出现在：
-
-```text
-My Vault/
-└── Inbox/
-    └── 2026-10-25 1432 让灵感先落地.md
-```
+| Obsidian 库的绝对路径 | `/home/alex/Documents/My Vault` | 已存在的 Obsidian 库目录 |
+| 库内笔记文件夹 | `Inbox` | 库内的相对路径；不存在时自动创建 |
 
 ## 使用
 
-1. 点击顶部栏的 ✎ 图标。
-2. 输入一个想法；首个非空行会成为笔记标题，正文会原样保留。
-3. 按 **Ctrl + Enter** 或点击「保存笔记」。
+点击顶部栏的 **✎**，输入想法，按 **Ctrl + Enter** 或点击「保存笔记」。保存成功后面板显示文件名；如果保存期间继续输入，新输入会保留。**Esc** 关闭面板，未保存内容在当前插件实例中保留。
 
-笔记会带有创建时间和 `inbox`、`idea` 标签，方便之后在 Obsidian 中检索和整理：
+例如输入 `一个想法` 和下一行 `下周试试`，会生成类似：
 
 ```markdown
 ---
-title: "让灵感先落地，再慢慢整理"
+title: "一个想法"
 created: 2026-10-25T14:32+08:00
 tags:
   - inbox
   - idea
 ---
 
-# 让灵感先落地，再慢慢整理
+# 一个想法
 
-今天想到一个轻量的周计划方法……
+一个想法
+下周试试
 ```
 
-## 快捷键入口
+## 快捷键与命令行
 
-安装 Python 3 和 Rofi 后，脚本可以从标准输入保存，也可以直接弹出 Rofi 多行输入框：
+在运行中的 Omarchy 会话里，可以用以下命令打开原生面板：
 
 ```bash
-export OBSIDIAN_VAULT="$HOME/Documents/My Vault"
-export OBSIDIAN_CAPTURE_FOLDER="Inbox"
-scripts/obsidian-capture --prompt
+omarchy-shell shell summon io.github.chivopic.obsidian-capture
 ```
 
-把下面一行加入 `~/.config/hypr/bindings.conf`（将仓库路径替换为实际路径），即可用 `Super + N` 快速记录：
+例如，在确认快捷键没有冲突后，可在 `~/.config/hypr/bindings.lua` 添加：
 
-```ini
-bind = SUPER, N, exec, OBSIDIAN_VAULT="$HOME/Documents/My Vault" /home/alex/Projects/omarchy-obsidian-capture/scripts/obsidian-capture --prompt
+```lua
+o.bind("SUPER + SHIFT + N", "记录想法", "omarchy-shell shell summon io.github.chivopic.obsidian-capture")
 ```
 
-也可以从其他程序通过管道记录：
+先用 `omarchy menu keybindings --print` 检查快捷键；如果已占用，选择其他组合。快捷键配置依赖你安装的 Omarchy 和 Hyprland 版本。
+
+也可以从管道直接保存，不需要打开面板或 Obsidian：
 
 ```bash
-printf '读到一个有趣的点子\n下周试试看。' | scripts/obsidian-capture --stdin --vault "$HOME/Documents/My Vault"
+printf '读到一个有趣的点子\n下周试试看。' | scripts/obsidian-capture \
+  --stdin --vault "$HOME/Documents/My Vault" --folder Inbox
 ```
 
-## 文件格式与隐私
+CLI 还支持 `--capture` 和可选的 Rofi `--prompt`；运行 `scripts/obsidian-capture --help` 查看参数。
 
-- 所有笔记在本机以 UTF-8 Markdown 文件写入 Obsidian 库。
-- 不使用网络、AI API、数据库或额外 Python 依赖。
-- 文件名形如 `YYYY-MM-DD HHmm 标题.md`；如果同名则追加 `(2)`、`(3)` 等序号。
-- 标题和正文原样保留在 Markdown 中。YAML 标题会自动转义。
-- 配置路径指向的库目录必须已经存在；笔记子文件夹可自动创建。
+## 设计与隐私
 
-## 开发
+笔记写入本地 UTF-8 Markdown，不需要网络或 AI 服务。`vault` 目录必须存在，目标文件夹必须位于该目录内。文件名包含日期、时间和标题，重复时追加序号。
 
-```text
-BarWidget.qml                 顶部栏图标与快速输入面板
-manifest.json                 Omarchy 插件元数据及库路径设置
-scripts/obsidian-capture      Markdown 笔记生成器与 Rofi 命令行入口
-docs/assets/capture-panel.svg README 面板示意图
-docs/assets/note-flow.svg     保存流程图
+目前只创建新笔记；自动追加到每日笔记、模板、目标切换和自动 Git 同步还没有实现。与 QuickAdd、Obsidian URI 及 Omarchy 同类工具的对照见[竞品比较](docs/COMPARISON.md)。
+
+## 开发与验证
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 tests/run_qml_smoke.py
 ```
 
-MIT License · [反馈问题](https://github.com/chivopic/omarchy-obsidian-capture/issues)
+自动化检查使用临时库。QML 检查需要安装 Omarchy shell UI kit 和可访问的 Wayland 会话；它加载真实组件并验证保存期间的新草稿不会丢失。图中面板为示意图，不是实际桌面截图。
+
+项目采用 [MIT 许可证](LICENSE)。

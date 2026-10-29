@@ -18,7 +18,7 @@
     <rect x="840" y="116" width="308" height="166" rx="18" fill="#24352f" stroke="#5d927d"/>
     <circle cx="876" cy="153" r="18" fill="#79d5b1"/><text x="876" y="159" text-anchor="middle" fill="#10251d" font-size="16" font-weight="700">3</text>
     <text x="905" y="160" fill="#f0f3f8" font-size="19" font-weight="700">保存到 Obsidian 库</text>
-    <text x="866" y="205" fill="#c6d8d0" font-size="15">Inbox/YYYY-MM-DD HHmm 标题.md</text><text x="866" y="232" fill="#c6d8d0" font-size="15">Obsidian 自动发现并同步</text>
+    <text x="866" y="205" fill="#c6d8d0" font-size="15">Inbox/YYYY-MM-DD HHmm 标题.md</text><text x="866" y="232" fill="#c6d8d0" font-size="15">Obsidian 自动发现笔记</text>
     <text x="600" y="326" text-anchor="middle" fill="#8f9cac" font-size="14">本地写入 · Markdown 纯文本 · 不依赖云端 API</text>
   </g>
 </svg>
