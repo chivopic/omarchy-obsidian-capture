@@ -10,9 +10,15 @@
 
 每次保存创建一个独立笔记：首个非空行成为标题，正文保留输入内容，并附上创建时间、`inbox` 和 `idea` 标签。同名文件会自动加序号，避免覆盖已有笔记。
 
-## 本地安装
+## 安装
 
-需要支持 `KeyboardPanel` 的 Omarchy shell 和 Python 3。在项目目录中运行：
+需要支持 `KeyboardPanel` 的 Omarchy shell 和 Python 3：
+
+```bash
+omarchy plugin add https://github.com/chivopic/omarchy-obsidian-capture --enable
+```
+
+也可以从本地项目目录安装，便于开发：
 
 ```bash
 # 先查看将要修改的位置
@@ -22,7 +28,7 @@ python3 scripts/install-local
 python3 scripts/install-local --apply
 ```
 
-安装器会保留已有的栏位配置，并在修改 `shell.json` 前备份。如果配置文件不存在，它会只创建插件链接；请通过 Omarchy 插件设置启用 **Obsidian Capture**。项目目前尚未发布到 GitHub，安装需要先拥有本地项目目录。
+本地安装器会保留已有的栏位配置，并在修改 `shell.json` 前备份。如果配置文件不存在，它会只创建插件链接；请通过 Omarchy 插件设置启用 **Obsidian Capture**。
 
 在 Omarchy 插件设置中填写：
 
