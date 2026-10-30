@@ -12,7 +12,7 @@
 
 ## 安装
 
-需要支持 `KeyboardPanel` 的 Omarchy shell 和 Python 3：
+需要支持 `KeyboardPanel` 的 Omarchy shell 和 Python 3.10 或更新版本：
 
 ```bash
 omarchy plugin add https://github.com/chivopic/omarchy-obsidian-capture --enable
@@ -87,6 +87,8 @@ CLI 还支持 `--capture` 和可选的 Rofi `--prompt`；运行 `scripts/obsidia
 
 笔记写入本地 UTF-8 Markdown，不需要网络或 AI 服务。`vault` 目录必须存在，目标文件夹必须位于该目录内。文件名包含日期、时间和标题，重复时追加序号。
 
+保存时先完整写入临时文件，再通过硬链接创建笔记，以防出现不完整的 Markdown 文件。目标文件系统需要支持硬链接；若不支持，面板会报告保存失败并保留草稿。异常中断或临时文件清理失败时，文件夹内可能残留 `.obsidian-capture-*.tmp` 文件。
+
 目前只创建新笔记；自动追加到每日笔记、模板、目标切换和自动 Git 同步还没有实现。与 QuickAdd、Obsidian URI 及 Omarchy 同类工具的对照见[竞品比较](docs/COMPARISON.md)。
 
 ## 开发与验证
@@ -96,6 +98,6 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 python3 tests/run_qml_smoke.py
 ```
 
-自动化检查使用临时库。QML 检查需要安装 Omarchy shell UI kit 和可访问的 Wayland 会话；它加载真实组件并验证保存期间的新草稿不会丢失。图中面板为示意图，不是实际桌面截图。
+自动化检查使用临时库。GitHub Actions 会在 Python 3.10、3.12 和 3.14 上运行命令行、安装器及清单检查。QML 检查需要安装 Omarchy shell UI kit 和可访问的 Wayland 会话；它加载真实组件并验证保存期间的新草稿不会丢失，目前在本地运行。图中面板为示意图，不是实际桌面截图。
 
 项目采用 [MIT 许可证](LICENSE)。

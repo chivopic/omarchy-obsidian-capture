@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import concurrent.futures
+import errno
 import importlib.machinery
 import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,6 +60,33 @@ class CreateNoteTests(unittest.TestCase):
         second = capture.create_note("same", str(self.vault), now=self.moment)
         self.assertEqual(second.name, "2026-10-29 1432 same (2).md")
         self.assertEqual(first.read_bytes(), original)
+
+    def test_failed_sync_does_not_publish_a_partial_note(self) -> None:
+        with mock.patch.object(capture.os, "fsync", side_effect=OSError("disk write failed")):
+            with self.assertRaisesRegex(OSError, "disk write failed"):
+                capture.create_note("incomplete", str(self.vault), now=self.moment)
+
+        inbox = self.vault / "Inbox"
+        self.assertEqual(list(inbox.glob("*.md")), [])
+        self.assertEqual(list(inbox.iterdir()), [])
+
+    def test_temp_cleanup_failure_after_publish_does_not_report_save_failure(self) -> None:
+        with mock.patch.object(Path, "unlink", side_effect=OSError("cleanup failed")):
+            result = capture.create_note("complete", str(self.vault), now=self.moment)
+
+        self.assertTrue(result.is_file())
+        self.assertTrue(result.read_text(encoding="utf-8").endswith("complete\n"))
+        # Cleanup failure can leave only the hidden staging file behind.
+        self.assertEqual(len(list(result.parent.glob(".obsidian-capture-*.tmp"))), 1)
+
+    def test_unsupported_hard_links_fail_clearly_without_fallback(self) -> None:
+        with mock.patch.object(capture.os, "link", side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported")):
+            with self.assertRaisesRegex(OSError, "可能不支持硬链接.*未降级写入"):
+                capture.create_note("idea", str(self.vault), now=self.moment)
+
+        inbox = self.vault / "Inbox"
+        self.assertEqual(list(inbox.glob("*.md")), [])
+        self.assertEqual(list(inbox.iterdir()), [])
 
     def test_rejects_empty_content_and_invalid_vault(self) -> None:
         with self.assertRaisesRegex(ValueError, "不能为空"):

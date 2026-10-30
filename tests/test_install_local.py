@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import json
+import importlib.util
+from importlib.machinery import SourceFileLoader
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "install-local"
 PLUGIN_ID = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))["id"]
+SPEC = importlib.util.spec_from_loader("install_local", SourceFileLoader("install_local", str(SCRIPT)))
+assert SPEC is not None and SPEC.loader is not None
+INSTALL_LOCAL = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(INSTALL_LOCAL)
 
 
 class InstallLocalTests(unittest.TestCase):
@@ -86,6 +93,41 @@ class InstallLocalTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.plugins / PLUGIN_ID).is_symlink())
         self.assertFalse(self.shell_json.exists())
+
+    def test_backup_failure_rolls_back_new_link_and_partial_backup(self) -> None:
+        self.write_config({"bar": {"layout": {"right": []}}})
+        original = self.shell_json.read_bytes()
+
+        def fail_after_partial_copy(source: Path, destination: Path) -> None:
+            destination.write_bytes(b"partial backup")
+            raise OSError("simulated backup failure")
+
+        with mock.patch.object(INSTALL_LOCAL.shutil, "copy2", side_effect=fail_after_partial_copy):
+            with self.assertRaisesRegex(OSError, "simulated backup failure"):
+                INSTALL_LOCAL.install(self.plugins, self.shell_json, apply=True)
+
+        self.assertFalse((self.plugins / PLUGIN_ID).exists())
+        self.assertFalse((self.plugins / PLUGIN_ID).is_symlink())
+        self.assertEqual(self.shell_json.read_bytes(), original)
+        self.assertEqual(list(self.shell_json.parent.glob("shell.json.bak*")), [])
+
+    def test_link_creation_race_does_not_remove_other_process_link(self) -> None:
+        self.write_config({"bar": {"layout": {"right": []}}})
+        foreign_target = self.root / "other-plugin-checkout"
+        foreign_target.mkdir()
+        link_path = self.plugins / PLUGIN_ID
+        real_symlink_to = Path.symlink_to
+
+        def create_foreign_link_then_fail(target: Path, **kwargs: object) -> None:
+            real_symlink_to(link_path, foreign_target, target_is_directory=True)
+            raise FileExistsError("simulated concurrent install")
+
+        with mock.patch.object(Path, "symlink_to", side_effect=create_foreign_link_then_fail):
+            with self.assertRaisesRegex(FileExistsError, "concurrent install"):
+                INSTALL_LOCAL.install(self.plugins, self.shell_json, apply=True)
+
+        self.assertTrue(link_path.is_symlink())
+        self.assertEqual(link_path.resolve(), foreign_target)
 
 
 if __name__ == "__main__":

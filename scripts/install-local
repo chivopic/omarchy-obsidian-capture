@@ -45,6 +45,7 @@ def install(plugin_dir: Path, shell_json: Path, apply: bool) -> list[str]:
     link_path = plugin_dir / plugin_id
     actions: list[str] = []
     create_link = False
+    link_created = False
 
     if link_path.is_symlink():
         if link_path.resolve() != ROOT:
@@ -57,9 +58,11 @@ def install(plugin_dir: Path, shell_json: Path, apply: bool) -> list[str]:
         create_link = True
 
     def apply_link() -> None:
+        nonlocal link_created
         if create_link and apply:
             plugin_dir.mkdir(parents=True, exist_ok=True)
             link_path.symlink_to(ROOT, target_is_directory=True)
+            link_created = True
 
     if not shell_json.exists():
         actions.append("未找到 shell.json；未创建不完整配置。请在 Omarchy 设置中重新扫描并启用此插件。")
@@ -98,15 +101,24 @@ def install(plugin_dir: Path, shell_json: Path, apply: bool) -> list[str]:
     layout[section].append({"id": plugin_id})
     actions.append("将插件加入 shell.json 的右栏")
     if apply:
-        apply_link()
         backup = shell_json.with_name(f"{shell_json.name}.bak")
-        suffix = 1
-        while backup.exists():
-            backup = shell_json.with_name(f"{shell_json.name}.bak.{suffix}")
-            suffix += 1
-        shutil.copy2(shell_json, backup)
         temp_path: Path | None = None
+        backup_created = False
         try:
+            apply_link()
+            suffix = 0
+            while True:
+                candidate = backup if suffix == 0 else shell_json.with_name(f"{shell_json.name}.bak.{suffix}")
+                try:
+                    descriptor = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                except FileExistsError:
+                    suffix += 1
+                    continue
+                os.close(descriptor)
+                backup = candidate
+                backup_created = True
+                break
+            shutil.copy2(shell_json, backup)
             with tempfile.NamedTemporaryFile(
                 "w", encoding="utf-8", dir=shell_json.parent,
                 prefix=f".{shell_json.name}.", suffix=".tmp", delete=False,
@@ -119,7 +131,9 @@ def install(plugin_dir: Path, shell_json: Path, apply: bool) -> list[str]:
             temp_path.chmod(shell_json.stat().st_mode & 0o777)
             os.replace(temp_path, shell_json)
         except BaseException:
-            if create_link:
+            if backup_created:
+                backup.unlink(missing_ok=True)
+            if link_created:
                 link_path.unlink(missing_ok=True)
             raise
         finally:

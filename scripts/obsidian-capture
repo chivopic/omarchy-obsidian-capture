@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -54,32 +55,49 @@ def create_note(text: str, vault: str, folder: str = "Inbox", now: datetime | No
         "---\n\n"
         f"# {title}\n\n{content}"
     )
-    index = 1
-    while True:
-        suffix = "" if index == 1 else f" ({index})"
-        slug_budget = 255 - len((stem_prefix + suffix + ".md").encode("utf-8"))
-        stem = f"{stem_prefix}{slugify(title, max_bytes=slug_budget)}"
-        path = target_dir / f"{stem}{suffix}.md"
+    # Finish the note in a private same-directory temporary file first. A
+    # process killed during writing can then leave only a temp file, never a
+    # truncated note that looks successfully captured. os.link publishes it
+    # atomically and fails if another writer already claimed the name.
+    fd, temporary_name = tempfile.mkstemp(prefix=".obsidian-capture-", suffix=".tmp", dir=target_dir)
+    temporary_path = Path(temporary_name)
+    published = False
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as note:
+            note.write(body)
+            note.flush()
+            os.fsync(note.fileno())
+
+        index = 1
+        while True:
+            suffix = "" if index == 1 else f" ({index})"
+            slug_budget = 255 - len((stem_prefix + suffix + ".md").encode("utf-8"))
+            stem = f"{stem_prefix}{slugify(title, max_bytes=slug_budget)}"
+            path = target_dir / f"{stem}{suffix}.md"
+            try:
+                os.link(temporary_path, path)
+                published = True
+                return path
+            except FileExistsError:
+                index += 1
+            except OSError as error:
+                raise OSError(
+                    error.errno,
+                    "无法原子发布笔记；当前文件系统可能不支持硬链接。为避免留下不完整笔记，未降级写入。 "
+                    f"系统错误：{error.strerror or error}",
+                    str(path),
+                ) from error
+    finally:
         try:
-            with path.open("x", encoding="utf-8") as note:
-                identity = os.fstat(note.fileno())
-                try:
-                    note.write(body)
-                    note.flush()
-                except BaseException:
-                    # Do not leave a truncated note behind after a failed write.
-                    # Check inode identity so we never remove a replacement made
-                    # by another process after this file was opened.
-                    try:
-                        current = path.stat()
-                        if (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
-                            path.unlink()
-                    except OSError:
-                        pass
-                    raise
-            return path
-        except FileExistsError:
-            index += 1
+            temporary_path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            # Publication already succeeded, so reporting failure here would
+            # invite a retry and create a duplicate. A hidden temp file may
+            # remain, but the complete note is safely available at `path`.
+            if not published:
+                raise
 
 
 def prompt_with_rofi() -> str:
@@ -128,7 +146,7 @@ def main() -> int:
         else:
             print(f"已保存：{path}")
         return 0
-    except (ValueError, OSError, RuntimeError) as error:
+    except (ValueError, OSError, RuntimeError, UnicodeError) as error:
         if args.json:
             print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False))
         else:
